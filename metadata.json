@@ -1,0 +1,6 @@
+{
+  "name": "AI Barta 24",
+  "description": "AI Barta 24 - Premium AI Education & Online Learning Platform by Mahmudul Hasan. Practical Generative AI, Prompt Engineering, Automation, and Digital Skills.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
