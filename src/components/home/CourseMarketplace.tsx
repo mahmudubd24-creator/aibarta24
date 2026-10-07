@@ -16,7 +16,7 @@ interface CourseMarketplaceProps {
 }
 
 export const CourseMarketplace: React.FC<CourseMarketplaceProps> = ({ onNavigate, onEnroll }) => {
-  const { courses, language } = useApp();
+  const { courses, language, settings } = useApp();
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
@@ -160,7 +160,7 @@ export const CourseMarketplace: React.FC<CourseMarketplaceProps> = ({ onNavigate
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <img
-                            src={course.instructor.avatar}
+                            src={course.instructor.avatar || settings.founderProfileImage || settings.founderImage}
                             alt={course.instructor.name}
                             className="w-6 h-6 rounded-full object-cover border border-slate-700"
                           />

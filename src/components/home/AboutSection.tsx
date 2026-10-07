@@ -45,7 +45,7 @@ export const AboutSection: React.FC<AboutSectionProps> = ({ onNavigate }) => {
                 {/* Image Frame */}
                 <div className="aspect-4/3 sm:aspect-square relative overflow-hidden bg-slate-950">
                   <img
-                    src={settings.founderImage}
+                    src={settings.founderProfileImage || settings.founderImage}
                     alt={settings.founderName}
                     className="w-full h-full object-cover object-top hover:scale-102 transition-transform duration-500"
                     onError={(e) => {

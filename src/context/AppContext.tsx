@@ -12,6 +12,7 @@ import {
   ContactMessage,
   Coupon,
   PlatformSettings,
+  VideoItem,
 } from '../types';
 import {
   INITIAL_SETTINGS,
@@ -23,7 +24,11 @@ import {
   INITIAL_FAQS,
   INITIAL_COUPONS,
   INITIAL_USERS,
+  INITIAL_VIDEOS,
+  OFFICIAL_FOUNDER_IMAGE,
 } from '../services/mockData';
+import { extractYouTubeId, getYouTubeThumbnail } from '../utils/youtube';
+import { getActiveAdminSession, logoutAdminSession } from '../services/authCrypto';
 
 interface AppContextType {
   currentUser: User | null;
@@ -38,9 +43,17 @@ interface AppContextType {
   faqs: FAQItem[];
   messages: ContactMessage[];
   coupons: Coupon[];
+  videos: VideoItem[];
   settings: PlatformSettings;
   language: 'bn' | 'en';
   setLanguage: (lang: 'bn' | 'en') => void;
+
+  // Videos
+  addVideo: (video: Omit<VideoItem, 'id' | 'youtubeId'> & { youtubeUrl: string }) => VideoItem;
+  updateVideo: (id: string, updates: Partial<VideoItem>) => void;
+  deleteVideo: (id: string) => void;
+  togglePublishVideo: (id: string) => void;
+  toggleFeaturedVideo: (id: string) => void;
 
   // Auth
   login: (email: string, password?: string) => { success: boolean; message: string; user?: User };
@@ -48,6 +61,7 @@ interface AppContextType {
   logout: () => void;
   updateProfile: (updates: Partial<User>) => void;
   switchDemoUser: (role: 'student' | 'admin' | 'guest') => void;
+  refreshAdminSessionUser: () => void;
 
   // Courses
   getCourseBySlug: (slug: string) => Course | undefined;
@@ -135,6 +149,7 @@ const STORAGE_KEYS = {
   COUPONS: 'aibarta24_coupons',
   SETTINGS: 'aibarta24_settings',
   LANGUAGE: 'aibarta24_lang',
+  VIDEOS: 'aibarta24_videos',
 };
 
 function safeGetStorage<T>(key: string, fallback: T): T {
@@ -148,9 +163,30 @@ function safeGetStorage<T>(key: string, fallback: T): T {
 }
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState<User | null>(() =>
-    safeGetStorage<User | null>(STORAGE_KEYS.CURRENT_USER, INITIAL_USERS[0]) // Default admin logged in for easy test/demo
-  );
+  const [currentUser, setCurrentUser] = useState<User | null>(() => {
+    // 1. Check if a secure admin session is active
+    const adminSession = getActiveAdminSession();
+    if (adminSession) {
+      const savedSettings = safeGetStorage<PlatformSettings | null>(STORAGE_KEYS.SETTINGS, null);
+      return {
+        id: 'usr-admin-master',
+        name: savedSettings?.founderName || 'Mahmudul Hasan',
+        email: adminSession.email,
+        phone: savedSettings?.founderPhone || '01310601558',
+        role: 'admin',
+        avatar: savedSettings?.founderProfileImage || OFFICIAL_FOUNDER_IMAGE,
+        bio: 'Platform Owner & Administrator',
+        createdAt: '2026-01-01',
+      };
+    }
+    // 2. Check if a student user was previously logged in
+    const savedUser = safeGetStorage<User | null>(STORAGE_KEYS.CURRENT_USER, null);
+    if (savedUser && savedUser.role === 'student') {
+      return savedUser;
+    }
+    // Default to unauthenticated guest
+    return null;
+  });
 
   const [users, setUsers] = useState<User[]>(() =>
     safeGetStorage<User[]>(STORAGE_KEYS.USERS, INITIAL_USERS)
@@ -158,6 +194,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [courses, setCourses] = useState<Course[]>(() =>
     safeGetStorage<Course[]>(STORAGE_KEYS.COURSES, INITIAL_COURSES)
+  );
+
+  const [videos, setVideos] = useState<VideoItem[]>(() =>
+    safeGetStorage<VideoItem[]>(STORAGE_KEYS.VIDEOS, INITIAL_VIDEOS)
   );
 
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethodConfig[]>(() =>
@@ -265,9 +305,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     safeGetStorage<Coupon[]>(STORAGE_KEYS.COUPONS, INITIAL_COUPONS)
   );
 
-  const [settings, setSettings] = useState<PlatformSettings>(() =>
-    safeGetStorage<PlatformSettings>(STORAGE_KEYS.SETTINGS, INITIAL_SETTINGS)
-  );
+  const [settings, setSettings] = useState<PlatformSettings>(() => {
+    const loaded = safeGetStorage<PlatformSettings>(STORAGE_KEYS.SETTINGS, INITIAL_SETTINGS);
+    return {
+      ...INITIAL_SETTINGS,
+      ...loaded,
+      founderProfileImage: loaded.founderProfileImage || OFFICIAL_FOUNDER_IMAGE,
+      founderImage: OFFICIAL_FOUNDER_IMAGE,
+      founderPhone: loaded.founderPhone || '01310601558',
+      socialLinks: {
+        ...INITIAL_SETTINGS.socialLinks,
+        ...loaded.socialLinks,
+        youtube: 'https://www.youtube.com/@AIBARTA24',
+      },
+    };
+  });
 
   const [language, setLanguageState] = useState<'bn' | 'en'>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.LANGUAGE);
@@ -291,6 +343,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.COURSES, JSON.stringify(courses));
   }, [courses]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.VIDEOS, JSON.stringify(videos));
+  }, [videos]);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.PAYMENT_METHODS, JSON.stringify(paymentMethods));
@@ -336,7 +392,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const login = (email: string, _password?: string) => {
     const trimmed = email.trim().toLowerCase();
     const existing = users.find((u) => u.email.toLowerCase() === trimmed);
-    if (existing) {
+    if (existing && existing.role === 'student') {
       setCurrentUser(existing);
       return { success: true, message: 'Logged in successfully', user: existing };
     }
@@ -345,7 +401,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       id: `usr-${Date.now()}`,
       name: email.split('@')[0],
       email: trimmed,
-      role: trimmed.includes('admin') ? 'admin' : 'student',
+      role: 'student',
       createdAt: new Date().toISOString(),
     };
     setUsers((prev) => [...prev, newUser]);
@@ -373,7 +429,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const logout = () => {
+    logoutAdminSession();
     setCurrentUser(null);
+    localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
+  };
+
+  const refreshAdminSessionUser = () => {
+    const session = getActiveAdminSession();
+    if (session) {
+      const adminUser: User = {
+        id: 'usr-admin-master',
+        name: settings.founderName || 'Mahmudul Hasan',
+        email: session.email,
+        phone: settings.founderPhone || '01310601558',
+        role: 'admin',
+        avatar: settings.founderProfileImage || OFFICIAL_FOUNDER_IMAGE,
+        bio: 'Platform Owner & Administrator',
+        createdAt: '2026-01-01',
+      };
+      setCurrentUser(adminUser);
+      setUsers((prev) => {
+        const filtered = prev.filter((u) => u.id !== 'usr-admin-master');
+        return [adminUser, ...filtered];
+      });
+    } else {
+      setCurrentUser(null);
+    }
   };
 
   const updateProfile = (updates: Partial<User>) => {
@@ -385,13 +466,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const switchDemoUser = (role: 'student' | 'admin' | 'guest') => {
     if (role === 'guest') {
+      logoutAdminSession();
       setCurrentUser(null);
-    } else if (role === 'admin') {
-      const admin = users.find((u) => u.role === 'admin') || INITIAL_USERS[0];
-      setCurrentUser(admin);
-    } else {
-      const student = users.find((u) => u.role === 'student') || INITIAL_USERS[1];
+    } else if (role === 'student') {
+      logoutAdminSession();
+      const student = users.find((u) => u.role === 'student') || {
+        id: 'usr-student-1',
+        name: 'Shakil Ahmed',
+        email: 'student@example.com',
+        role: 'student',
+        createdAt: '2026-08-14',
+      };
       setCurrentUser(student);
+    } else {
+      refreshAdminSessionUser();
     }
   };
 
@@ -660,9 +748,91 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCoupons((prev) => prev.filter((c) => c.id !== id));
   };
 
+  // Videos
+  const addVideo = (videoData: Omit<VideoItem, 'id' | 'youtubeId'> & { youtubeUrl: string }) => {
+    const extractedId = extractYouTubeId(videoData.youtubeUrl) || 'dQw4w9WgXcQ';
+    const thumb = videoData.thumbnailUrl || getYouTubeThumbnail(extractedId, 'hq');
+
+    const newVideo: VideoItem = {
+      ...videoData,
+      id: `vid-${Date.now()}`,
+      youtubeId: extractedId,
+      thumbnailUrl: thumb,
+      provider: videoData.provider || 'youtube',
+    };
+
+    setVideos((prev) => [newVideo, ...prev]);
+    return newVideo;
+  };
+
+  const updateVideo = (id: string, updates: Partial<VideoItem>) => {
+    setVideos((prev) =>
+      prev.map((v) => {
+        if (v.id === id) {
+          const updated = { ...v, ...updates };
+          if (updates.youtubeUrl && updates.youtubeUrl !== v.youtubeUrl) {
+            const extracted = extractYouTubeId(updates.youtubeUrl);
+            if (extracted) {
+              updated.youtubeId = extracted;
+              if (!updates.thumbnailUrl) {
+                updated.thumbnailUrl = getYouTubeThumbnail(extracted, 'hq');
+              }
+            }
+          }
+          return updated;
+        }
+        return v;
+      })
+    );
+  };
+
+  const deleteVideo = (id: string) => {
+    setVideos((prev) => prev.filter((v) => v.id !== id));
+  };
+
+  const togglePublishVideo = (id: string) => {
+    setVideos((prev) =>
+      prev.map((v) => (v.id === id ? { ...v, isPublished: !v.isPublished } : v))
+    );
+  };
+
+  const toggleFeaturedVideo = (id: string) => {
+    setVideos((prev) =>
+      prev.map((v) => (v.id === id ? { ...v, isFeatured: !v.isFeatured } : v))
+    );
+  };
+
   // Settings & System
   const updateSettings = (updates: Partial<PlatformSettings>) => {
-    setSettings((prev) => ({ ...prev, ...updates }));
+    const newImage = updates.founderProfileImage || updates.founderImage;
+    setSettings((prev) => {
+      const merged = { ...prev, ...updates };
+      if (newImage) {
+        merged.founderProfileImage = newImage;
+        merged.founderImage = newImage;
+      }
+      return merged;
+    });
+
+    if (newImage) {
+      // Sync courses lead instructor avatar
+      setCourses((prevCourses) =>
+        prevCourses.map((c) => ({
+          ...c,
+          instructor: {
+            ...c.instructor,
+            avatar: newImage,
+          },
+        }))
+      );
+      // Sync admin user avatar
+      setUsers((prevUsers) =>
+        prevUsers.map((u) => (u.role === 'admin' ? { ...u, avatar: newImage } : u))
+      );
+      if (currentUser?.role === 'admin') {
+        setCurrentUser((prev) => (prev ? { ...prev, avatar: newImage } : prev));
+      }
+    }
   };
 
   const updatePaymentMethod = (id: string, updates: Partial<PaymentMethodConfig>) => {
@@ -676,6 +846,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       {
         settings,
         courses,
+        videos,
         paymentMethods,
         orders,
         enrollments,
@@ -695,6 +866,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const data = JSON.parse(jsonString);
       if (data.settings) setSettings(data.settings);
       if (data.courses) setCourses(data.courses);
+      if (data.videos) setVideos(data.videos);
       if (data.paymentMethods) setPaymentMethods(data.paymentMethods);
       if (data.orders) setOrders(data.orders);
       if (data.enrollments) setEnrollments(data.enrollments);
@@ -713,6 +885,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const resetToDefaults = () => {
     setSettings(INITIAL_SETTINGS);
     setCourses(INITIAL_COURSES);
+    setVideos(INITIAL_VIDEOS);
     setPaymentMethods(INITIAL_PAYMENT_METHODS);
     setResources(INITIAL_RESOURCES);
     setBlogPosts(INITIAL_BLOG_POSTS);
@@ -728,6 +901,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         currentUser,
         users,
         courses,
+        videos,
         paymentMethods,
         orders,
         enrollments,
@@ -745,12 +919,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         logout,
         updateProfile,
         switchDemoUser,
+        refreshAdminSessionUser,
         getCourseBySlug,
         getCourseById,
         addCourse,
         updateCourse,
         deleteCourse,
         togglePublishCourse,
+        addVideo,
+        updateVideo,
+        deleteVideo,
+        togglePublishVideo,
+        toggleFeaturedVideo,
         createOrder,
         approveOrder,
         rejectOrder,

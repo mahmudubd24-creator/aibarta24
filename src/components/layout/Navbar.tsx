@@ -20,13 +20,14 @@ interface NavbarProps {
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, onOpenAuth }) => {
-  const { currentUser, logout, language, setLanguage, switchDemoUser, settings } = useApp();
+  const { currentUser, logout, language, setLanguage, settings } = useApp();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
 
   const navLinks = [
     { id: 'home', labelEn: 'Home', labelBn: 'হোম' },
     { id: 'courses', labelEn: 'Courses', labelBn: 'কোর্সসমূহ' },
+    { id: 'videos', labelEn: 'Videos', labelBn: 'ভিডিও' },
     { id: 'about', labelEn: 'About Instructor', labelBn: 'মাহমুদুল হাসান' },
     { id: 'resources', labelEn: 'Resources', labelBn: 'রিসোর্স' },
     { id: 'blog', labelEn: 'Blog', labelBn: 'ব্লগ' },
@@ -41,65 +42,6 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, onOpenA
 
   return (
     <>
-      {/* Quick Demo Switcher Bar */}
-      <aside aria-label="Demo role selector" className="bg-slate-900/90 border-b border-slate-800 text-xs py-1.5 px-4 text-slate-300">
-        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            <span className="font-medium text-slate-200">
-              {language === 'bn' ? 'এআই বার্তা ২৪ লার্নিং প্ল্যাটফর্ম' : 'AI Barta 24 Education Platform'}
-            </span>
-            <span className="hidden sm:inline text-slate-400">· Mahmudul Hasan</span>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <span className="text-slate-400 hidden md:inline">
-              {language === 'bn' ? 'টেস্ট মোড:' : 'Switch Demo View:'}
-            </span>
-            <div className="flex items-center gap-1 bg-slate-800/80 p-0.5 rounded-md border border-slate-700/60">
-              <button
-                onClick={() => switchDemoUser('admin')}
-                className={`px-2 py-0.5 text-[11px] font-medium rounded transition-colors ${
-                  currentUser?.role === 'admin'
-                    ? 'bg-blue-600 text-white shadow-xs'
-                    : 'text-slate-300 hover:text-white'
-                }`}
-              >
-                Admin (এডমিন)
-              </button>
-              <button
-                onClick={() => switchDemoUser('student')}
-                className={`px-2 py-0.5 text-[11px] font-medium rounded transition-colors ${
-                  currentUser?.role === 'student'
-                    ? 'bg-cyan-600 text-white shadow-xs'
-                    : 'text-slate-300 hover:text-white'
-                }`}
-              >
-                Student (শিক্ষার্থী)
-              </button>
-              <button
-                onClick={() => switchDemoUser('guest')}
-                className={`px-2 py-0.5 text-[11px] font-medium rounded transition-colors ${
-                  !currentUser ? 'bg-slate-700 text-white' : 'text-slate-300 hover:text-white'
-                }`}
-              >
-                Guest (ভিজিটর)
-              </button>
-            </div>
-
-            {/* Language Switcher */}
-            <button
-              onClick={() => setLanguage(language === 'bn' ? 'en' : 'bn')}
-              className="flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 rounded border border-slate-700 transition-colors"
-              title="Toggle Language"
-            >
-              <Globe className="w-3 h-3 text-cyan-400" />
-              <span>{language === 'bn' ? 'English' : 'বাংলা'}</span>
-            </button>
-          </div>
-        </div>
-      </aside>
-
       {/* Main Sticky Header */}
       <header className="sticky top-0 z-40 bg-slate-950/90 backdrop-blur-md border-b border-slate-800/80 transition-all duration-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between">
@@ -121,7 +63,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, onOpenA
             </button>
           </div>
 
-          {/* Zone 2: 4-6 Clean Text Nav Links */}
+          {/* Zone 2: Clean Text Nav Links */}
           <nav className="hidden lg:flex items-center gap-7 text-sm font-medium text-slate-300">
             {navLinks.map((link) => {
               const isActive = currentView === link.id;
@@ -142,8 +84,17 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, onOpenA
             })}
           </nav>
 
-          {/* Zone 3: 1-2 Primary Actions & User Profile */}
-          <div className="flex items-center gap-3">
+          {/* Zone 3: Language Toggle, Actions & User Profile */}
+          <div className="flex items-center gap-2.5">
+            {/* Language Switcher */}
+            <button
+              onClick={() => setLanguage(language === 'bn' ? 'en' : 'bn')}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white rounded-lg border border-slate-800 transition-colors cursor-pointer"
+              title="Toggle Language (English / বাংলা)"
+            >
+              <Globe className="w-3.5 h-3.5 text-cyan-400" />
+              <span>{language === 'bn' ? 'English' : 'বাংলা'}</span>
+            </button>
             {currentUser ? (
               <div className="relative">
                 <button

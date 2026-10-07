@@ -99,8 +99,13 @@ export const ContactSection: React.FC = () => {
                 <p className="text-xs text-slate-400">
                   {language === 'bn' ? 'পেমেন্ট ও এনরোলমেন্ট সংক্রান্ত জরুরি তথ্যের জন্য:' : 'For urgent payment verification assistance:'}
                 </p>
-                <div className="text-slate-200 font-semibold text-sm font-mono">
-                  {settings.founderPhone}
+                <div>
+                  <a
+                    href={`tel:${settings.founderPhone}`}
+                    className="text-emerald-400 hover:text-emerald-300 font-semibold text-sm font-mono hover:underline inline-block"
+                  >
+                    {settings.founderPhone}
+                  </a>
                 </div>
               </div>
             )}

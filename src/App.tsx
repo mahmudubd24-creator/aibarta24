@@ -11,6 +11,8 @@ import { DarkAiSection } from './components/home/DarkAiSection';
 import { TestimonialsSection } from './components/home/TestimonialsSection';
 import { FaqSection } from './components/home/FaqSection';
 import { ContactSection } from './components/home/ContactSection';
+import { VideoLibrarySection } from './components/videos/VideoLibrarySection';
+import { VideosView } from './components/videos/VideosView';
 import { CourseDetailsView } from './components/courses/CourseDetailsView';
 import { CheckoutModal } from './components/checkout/CheckoutModal';
 import { StudentDashboardView } from './components/student/StudentDashboardView';
@@ -20,26 +22,106 @@ import { BlogView } from './components/blog/BlogView';
 import { BlogPostView } from './components/blog/BlogPostView';
 import { AuthModal } from './components/auth/AuthModal';
 import { AdminDashboard } from './components/admin/AdminDashboard';
+import { AdminLoginPage } from './components/admin/AdminLoginPage';
+import { AdminSetupPage } from './components/admin/AdminSetupPage';
+import { getActiveAdminSession } from './services/authCrypto';
 import { Course } from './types';
 
+function parseUrlRoute(): { view: string; param?: string } {
+  const path = window.location.pathname.toLowerCase();
+  if (path === '/admin/login' || path === '/admin/login/') {
+    return { view: 'admin-login' };
+  }
+  if (path === '/admin/setup' || path === '/admin/setup/') {
+    return { view: 'admin-setup' };
+  }
+  if (path === '/admin' || path === '/admin/') {
+    return getActiveAdminSession() ? { view: 'admin' } : { view: 'admin-login' };
+  }
+  if (path === '/courses' || path === '/courses/') {
+    return { view: 'courses' };
+  }
+  if (path === '/videos' || path === '/videos/') {
+    return { view: 'videos' };
+  }
+  if (path === '/resources' || path === '/resources/') {
+    return { view: 'resources' };
+  }
+  if (path === '/blog' || path === '/blog/') {
+    return { view: 'blog' };
+  }
+  if (path === '/about' || path === '/about/') {
+    return { view: 'about' };
+  }
+  if (path === '/faq' || path === '/faq/') {
+    return { view: 'faq' };
+  }
+  if (path === '/contact' || path === '/contact/') {
+    return { view: 'contact' };
+  }
+  return { view: 'home' };
+}
+
 function MainApp() {
-  const { currentUser, language } = useApp();
-  const [currentView, setCurrentView] = useState<string>('home');
-  const [currentParam, setCurrentParam] = useState<string | undefined>(undefined);
+  const { currentUser, language, refreshAdminSessionUser } = useApp();
+  
+  // Initialize view from URL
+  const [currentView, setCurrentView] = useState<string>(() => parseUrlRoute().view);
+  const [currentParam, setCurrentParam] = useState<string | undefined>(() => parseUrlRoute().param);
 
   // Modal States
   const [enrollingCourse, setEnrollingCourse] = useState<Course | null>(null);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authInitialTab, setAuthInitialTab] = useState<'login' | 'register'>('login');
 
-  // Handle URL hash or direct history navigation
+  // Handle URL popstate & scroll
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [currentView, currentParam]);
 
+  useEffect(() => {
+    const onPopState = () => {
+      const parsed = parseUrlRoute();
+      setCurrentView(parsed.view);
+      setCurrentParam(parsed.param);
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
+
   const handleNavigate = (view: string, param?: string) => {
+    // Protected admin route verification
+    if (view === 'admin') {
+      const session = getActiveAdminSession();
+      if (!session) {
+        setCurrentView('admin-login');
+        setCurrentParam(undefined);
+        if (window.location.pathname !== '/admin/login') {
+          window.history.pushState({}, '', '/admin/login');
+        }
+        return;
+      }
+    }
+
     setCurrentView(view);
     setCurrentParam(param);
+
+    // Sync clean browser URL
+    let newPath = '/';
+    if (view === 'admin') newPath = '/admin';
+    else if (view === 'admin-login') newPath = '/admin/login';
+    else if (view === 'admin-setup') newPath = '/admin/setup';
+    else if (view === 'courses') newPath = '/courses';
+    else if (view === 'videos') newPath = '/videos';
+    else if (view === 'resources') newPath = '/resources';
+    else if (view === 'blog') newPath = '/blog';
+    else if (view === 'about') newPath = '/about';
+    else if (view === 'faq') newPath = '/faq';
+    else if (view === 'contact') newPath = '/contact';
+
+    if (window.location.pathname !== newPath) {
+      window.history.pushState({}, '', newPath);
+    }
   };
 
   const handleOpenAuth = (initialTab: 'login' | 'register' = 'login') => {
@@ -51,46 +133,51 @@ function MainApp() {
     setEnrollingCourse(course);
   };
 
-  // If in Admin view
+  // 1. Dedicated Protected Admin Setup Route
+  if (currentView === 'admin-setup') {
+    return (
+      <AdminSetupPage
+        onSuccess={() => {
+          refreshAdminSessionUser();
+          handleNavigate('admin');
+        }}
+        onNavigateToLogin={() => handleNavigate('admin-login')}
+        onBackToHome={() => handleNavigate('home')}
+      />
+    );
+  }
+
+  // 2. Dedicated Protected Admin Login Route
+  if (currentView === 'admin-login') {
+    return (
+      <AdminLoginPage
+        onSuccess={() => {
+          refreshAdminSessionUser();
+          handleNavigate('admin');
+        }}
+        onNavigateToSetup={() => handleNavigate('admin-setup')}
+        onBackToHome={() => handleNavigate('home')}
+      />
+    );
+  }
+
+  // 3. Protected Admin Dashboard View
   if (currentView === 'admin') {
-    if (currentUser?.role !== 'admin') {
+    const session = getActiveAdminSession();
+    if (!session) {
       return (
-        <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-center items-center p-6 text-center">
-          <div className="max-w-md p-8 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
-            <div className="w-12 h-12 rounded-full bg-rose-500/20 text-rose-400 flex items-center justify-center mx-auto text-xl font-bold">
-              🛡️
-            </div>
-            <h2 className="text-xl font-bold text-white">Protected Admin Portal</h2>
-            <p className="text-xs text-slate-400">
-              This area is restricted to Mahmudul Hasan and designated platform administrators. Please sign in with admin credentials.
-            </p>
-            <div className="pt-2 flex flex-col gap-2">
-              <button
-                onClick={() => handleOpenAuth('login')}
-                className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl text-xs"
-              >
-                Sign In as Admin
-              </button>
-              <button
-                onClick={() => setCurrentView('home')}
-                className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs"
-              >
-                Back to Public Site
-              </button>
-            </div>
-          </div>
-          {authModalOpen && (
-            <AuthModal
-              initialTab={authInitialTab}
-              onClose={() => setAuthModalOpen(false)}
-              onSuccess={() => {}}
-            />
-          )}
-        </div>
+        <AdminLoginPage
+          onSuccess={() => {
+            refreshAdminSessionUser();
+            handleNavigate('admin');
+          }}
+          onNavigateToSetup={() => handleNavigate('admin-setup')}
+          onBackToHome={() => handleNavigate('home')}
+        />
       );
     }
 
-    return <AdminDashboard onBackToHome={() => setCurrentView('home')} />;
+    return <AdminDashboard onBackToHome={() => handleNavigate('home')} />;
   }
 
   // If in Course Player classroom view
@@ -121,6 +208,7 @@ function MainApp() {
             <AboutSection onNavigate={handleNavigate} />
             <ExpertiseSection onNavigate={handleNavigate} />
             <CourseMarketplace onNavigate={handleNavigate} onEnroll={handleEnrollClick} />
+            <VideoLibrarySection onNavigate={handleNavigate} />
             <WhyAiBarta onNavigate={handleNavigate} />
             <DarkAiSection onNavigate={handleNavigate} />
             <TestimonialsSection />
@@ -133,6 +221,10 @@ function MainApp() {
           <div className="py-6">
             <CourseMarketplace onNavigate={handleNavigate} onEnroll={handleEnrollClick} />
           </div>
+        )}
+
+        {currentView === 'videos' && (
+          <VideosView onBackToHome={() => setCurrentView('home')} />
         )}
 
         {currentView === 'course-details' && currentParam && (

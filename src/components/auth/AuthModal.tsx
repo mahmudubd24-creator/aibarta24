@@ -13,7 +13,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   onClose,
   onSuccess,
 }) => {
-  const { login, register, switchDemoUser, language } = useApp();
+  const { login, register, language } = useApp();
   const [tab, setTab] = useState<'login' | 'register'>(initialTab);
 
   // Form states
@@ -47,12 +47,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     } else {
       setErrorMsg(res.message);
     }
-  };
-
-  const handleDemoLogin = (role: 'admin' | 'student') => {
-    switchDemoUser(role);
-    onSuccess();
-    onClose();
   };
 
   return (
@@ -237,32 +231,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             </form>
           )}
 
-          {/* Quick Demo Credentials for Fast Evaluation */}
-          <div className="pt-4 border-t border-slate-800/80 space-y-2">
-            <span className="text-[11px] text-slate-400 block text-center font-medium">
-              ⚡ Quick Testing (One-Click Demo Logins):
-            </span>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => handleDemoLogin('admin')}
-                className="py-1.5 px-2 bg-slate-950 hover:bg-slate-850 border border-blue-900/60 rounded-lg text-[11px] font-semibold text-cyan-300 flex items-center justify-center gap-1 cursor-pointer"
-              >
-                <ShieldCheck className="w-3 h-3 text-cyan-400" />
-                <span>Admin Login</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleDemoLogin('student')}
-                className="py-1.5 px-2 bg-slate-950 hover:bg-slate-850 border border-slate-800 rounded-lg text-[11px] font-semibold text-slate-300 flex items-center justify-center gap-1 cursor-pointer"
-              >
-                <User className="w-3 h-3 text-blue-400" />
-                <span>Student Login</span>
-              </button>
+            {/* Student Portal Note */}
+            <div className="pt-3 border-t border-slate-800/80 text-center">
+              <span className="text-[11px] text-slate-500">
+                {language === 'bn'
+                  ? 'কোর্স অ্যাক্সেস ও অগ্রগতি দেখতে আপনার স্টুডেন্ট একাউন্টে সাইন ইন করুন।'
+                  : 'Sign in to access your enrolled courses and resources.'}
+              </span>
             </div>
           </div>
         </div>
       </div>
-    </div>
   );
 };

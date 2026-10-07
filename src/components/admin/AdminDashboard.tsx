@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Course, Order, PaymentMethodConfig, ResourceItem, BlogPost, Testimonial, FAQItem, Coupon } from '../../types';
+import { Course, Order, PaymentMethodConfig, ResourceItem, BlogPost, Testimonial, FAQItem, Coupon, VideoItem } from '../../types';
+import { OFFICIAL_FOUNDER_IMAGE } from '../../services/mockData';
+import { extractYouTubeId, getYouTubeThumbnail } from '../../utils/youtube';
+import { changeAdminPassword, getAdminAccount } from '../../services/authCrypto';
+import { VideoModal } from '../videos/VideoModal';
 import {
   LayoutDashboard,
   BookOpen,
@@ -24,6 +28,13 @@ import {
   ArrowRight,
   RefreshCw,
   Upload,
+  Youtube,
+  Play,
+  Image as ImageIcon,
+  Key,
+  Lock,
+  Copy,
+  Check,
 } from 'lucide-react';
 
 interface AdminDashboardProps {
@@ -42,6 +53,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToHome }) 
     faqs,
     messages,
     coupons,
+    videos,
     paymentMethods,
     settings,
     approveOrder,
@@ -50,6 +62,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToHome }) 
     updateCourse,
     deleteCourse,
     togglePublishCourse,
+    addVideo,
+    updateVideo,
+    deleteVideo,
+    togglePublishVideo,
+    toggleFeaturedVideo,
     addResource,
     deleteResource,
     addBlogPost,
@@ -68,12 +85,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToHome }) 
     importPlatformData,
     resetToDefaults,
     logout,
+    language,
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<
     | 'overview'
     | 'orders'
     | 'courses'
+    | 'videos'
     | 'students'
     | 'resources'
     | 'blog'
@@ -81,6 +100,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToHome }) 
     | 'faqs'
     | 'messages'
     | 'coupons'
+    | 'media'
     | 'settings'
   >('overview');
 
@@ -100,11 +120,33 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToHome }) 
   const [newCourseOriginalPrice, setNewCourseOriginalPrice] = useState(4000);
   const [newCourseDiscountPrice, setNewCourseDiscountPrice] = useState(2500);
 
+  // Video creation modal / form state
+  const [showAddVideoModal, setShowAddVideoModal] = useState(false);
+  const [newVideoTitle, setNewVideoTitle] = useState('');
+  const [newVideoTitleBn, setNewVideoTitleBn] = useState('');
+  const [newVideoUrl, setNewVideoUrl] = useState('');
+  const [newVideoCategory, setNewVideoCategory] = useState('Generative AI');
+  const [newVideoDesc, setNewVideoDesc] = useState('');
+  const [newVideoDescBn, setNewVideoDescBn] = useState('');
+  const [newVideoDuration, setNewVideoDuration] = useState('12:30');
+  const [newVideoThumbnail, setNewVideoThumbnail] = useState('');
+  const [newVideoFeatured, setNewVideoFeatured] = useState(false);
+  const [newVideoPublished, setNewVideoPublished] = useState(true);
+  const [newVideoProvider, setNewVideoProvider] = useState<'youtube' | 'vimeo' | 'custom'>('youtube');
+  const [previewVideo, setPreviewVideo] = useState<VideoItem | null>(null);
+  const [editingVideo, setEditingVideo] = useState<VideoItem | null>(null);
+
   // Settings form states
   const [siteTitle, setSiteTitle] = useState(settings.siteTitle);
   const [founderName, setFounderName] = useState(settings.founderName);
   const [founderEmail, setFounderEmail] = useState(settings.founderEmail);
-  const [founderPhone, setFounderPhone] = useState(settings.founderPhone);
+  const [founderPhone, setFounderPhone] = useState(settings.founderPhone || '01310601558');
+  const [founderProfileImage, setFounderProfileImage] = useState(
+    settings.founderProfileImage || OFFICIAL_FOUNDER_IMAGE
+  );
+  const [youtubeChannelUrl, setYoutubeChannelUrl] = useState(
+    settings.socialLinks.youtube || 'https://www.youtube.com/@AIBARTA24'
+  );
   const [founderBio, setFounderBio] = useState(settings.founderBio);
   const [founderBioBn, setFounderBioBn] = useState(settings.founderBioBn);
   const [heroHeadingBn, setHeroHeadingBn] = useState(settings.heroHeadingBn);
@@ -122,6 +164,108 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToHome }) 
   const [newCouponCode, setNewCouponCode] = useState('');
   const [newCouponPercent, setNewCouponPercent] = useState(15);
 
+  // Admin Password Change state
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [passMsg, setPassMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [passLoading, setPassLoading] = useState(false);
+
+  // Images & Media Library state
+  const [mediaList, setMediaList] = useState<
+    Array<{ id: string; title: string; url: string; category: string; description: string }>
+  >([
+    {
+      id: 'med-founder',
+      title: 'Official Founder Profile (Mahmudul Hasan)',
+      url: settings.founderProfileImage || OFFICIAL_FOUNDER_IMAGE,
+      category: 'Founder / Profile',
+      description: 'Used everywhere as the lead instructor profile photo.',
+    },
+    {
+      id: 'med-course-1',
+      title: 'Flagship Generative AI Course Thumbnail',
+      url: courses[0]?.thumbnail || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=800',
+      category: 'Course Cover',
+      description: 'Primary banner for LLM & Prompt Engineering course.',
+    },
+    {
+      id: 'med-course-2',
+      title: 'AI Video Storytelling Masterclass Cover',
+      url: courses[1]?.thumbnail || 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?auto=format&fit=crop&q=80&w=800',
+      category: 'Course Cover',
+      description: 'Cover for Runway & Kling visual video masterclass.',
+    },
+    {
+      id: 'med-banner-hero',
+      title: 'AI Barta 24 Official Logo & Brand Mark',
+      url: 'https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&q=80&w=800',
+      category: 'Brand / Logo',
+      description: 'High-res neural network icon for marketing banners.',
+    },
+  ]);
+  const [newMediaTitle, setNewMediaTitle] = useState('');
+  const [newMediaUrl, setNewMediaUrl] = useState('');
+  const [newMediaCategory, setNewMediaCategory] = useState('Course Cover');
+  const [newMediaDesc, setNewMediaDesc] = useState('');
+  const [copiedMediaId, setCopiedMediaId] = useState<string | null>(null);
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPassMsg(null);
+
+    if (newPassword.length < 8) {
+      setPassMsg({ type: 'error', text: 'New password must be at least 8 characters long.' });
+      return;
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      setPassMsg({ type: 'error', text: 'New password and confirmation do not match.' });
+      return;
+    }
+
+    setPassLoading(true);
+    try {
+      const res = await changeAdminPassword(currentPassword, newPassword);
+      setPassLoading(false);
+      if (res.success) {
+        setPassMsg({ type: 'success', text: 'Password successfully changed and secured!' });
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmNewPassword('');
+      } else {
+        setPassMsg({ type: 'error', text: res.message });
+      }
+    } catch (err: any) {
+      setPassLoading(false);
+      setPassMsg({ type: 'error', text: err?.message || 'Error occurred changing password.' });
+    }
+  };
+
+  const handleAddMedia = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newMediaTitle || !newMediaUrl) return;
+
+    const newItem = {
+      id: `med-${Date.now()}`,
+      title: newMediaTitle.trim(),
+      url: newMediaUrl.trim(),
+      category: newMediaCategory,
+      description: newMediaDesc.trim() || 'Uploaded platform asset',
+    };
+
+    setMediaList((prev) => [newItem, ...prev]);
+    setNewMediaTitle('');
+    setNewMediaUrl('');
+    setNewMediaDesc('');
+  };
+
+  const copyToClipboard = (text: string, id: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedMediaId(id);
+    setTimeout(() => setCopiedMediaId(null), 2000);
+  };
+
   const handleSaveSettings = (e: React.FormEvent) => {
     e.preventDefault();
     updateSettings({
@@ -129,13 +273,70 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToHome }) 
       founderName,
       founderEmail,
       founderPhone,
+      founderProfileImage,
+      founderImage: founderProfileImage,
       founderBio,
       founderBioBn,
       heroHeadingBn,
       heroSubheadingBn,
+      socialLinks: {
+        ...settings.socialLinks,
+        youtube: youtubeChannelUrl,
+      },
     });
     setSettingsSaved(true);
     setTimeout(() => setSettingsSaved(false), 2000);
+  };
+
+  const handleCreateVideo = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newVideoTitle || !newVideoUrl) return;
+
+    addVideo({
+      title: newVideoTitle,
+      titleBn: newVideoTitleBn || newVideoTitle,
+      youtubeUrl: newVideoUrl,
+      description: newVideoDesc || 'Practical AI breakdown tutorial from AI Barta 24.',
+      descriptionBn: newVideoDescBn || newVideoDesc || 'ব্যবহারিক এআই টিউটোরিয়াল।',
+      category: newVideoCategory,
+      duration: newVideoDuration || '10:00',
+      thumbnailUrl: newVideoThumbnail.trim() || undefined,
+      isFeatured: newVideoFeatured,
+      isPublished: newVideoPublished,
+      publishedAt: new Date().toISOString().slice(0, 10),
+      provider: newVideoProvider,
+    });
+
+    setNewVideoTitle('');
+    setNewVideoTitleBn('');
+    setNewVideoUrl('');
+    setNewVideoDesc('');
+    setNewVideoDescBn('');
+    setNewVideoThumbnail('');
+    setShowAddVideoModal(false);
+  };
+
+  const handleStartEditVideo = (video: VideoItem) => {
+    setEditingVideo(video);
+  };
+
+  const handleSaveEditVideo = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingVideo) return;
+    updateVideo(editingVideo.id, {
+      title: editingVideo.title,
+      titleBn: editingVideo.titleBn,
+      youtubeUrl: editingVideo.youtubeUrl,
+      description: editingVideo.description,
+      descriptionBn: editingVideo.descriptionBn,
+      category: editingVideo.category,
+      duration: editingVideo.duration,
+      thumbnailUrl: editingVideo.thumbnailUrl,
+      isFeatured: editingVideo.isFeatured,
+      isPublished: editingVideo.isPublished,
+      provider: editingVideo.provider,
+    });
+    setEditingVideo(null);
   };
 
   const handleCreateCourse = (e: React.FormEvent) => {
@@ -287,6 +488,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToHome }) 
             </button>
 
             <button
+              onClick={() => setActiveTab('videos')}
+              className={`w-full p-2.5 rounded-xl flex items-center gap-2.5 font-medium transition-colors cursor-pointer ${
+                activeTab === 'videos'
+                  ? 'bg-rose-600 text-white shadow-xs'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800'
+              }`}
+            >
+              <Youtube className="w-4 h-4 text-rose-400" />
+              <span>AI Video Library ({videos.length})</span>
+            </button>
+
+            <button
               onClick={() => setActiveTab('students')}
               className={`w-full p-2.5 rounded-xl flex items-center gap-2.5 font-medium transition-colors cursor-pointer ${
                 activeTab === 'students'
@@ -375,6 +588,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToHome }) 
             >
               <Tag className="w-4 h-4" />
               <span>Promo Coupons</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('media')}
+              className={`w-full p-2.5 rounded-xl flex items-center gap-2.5 font-medium transition-colors cursor-pointer ${
+                activeTab === 'media'
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800'
+              }`}
+            >
+              <ImageIcon className="w-4 h-4" />
+              <span>Images & Media</span>
             </button>
 
             <button
@@ -758,6 +983,147 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToHome }) 
           </div>
         )}
 
+        {/* TAB: AI VIDEO LIBRARY MANAGEMENT */}
+        {activeTab === 'videos' && (
+          <div className="space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+                  <Youtube className="w-6 h-6 text-rose-500 fill-rose-500" />
+                  <span>AI Video Library Management</span>
+                </h1>
+                <p className="text-xs text-slate-400">
+                  Add YouTube video links, set categories, feature tutorials, and manage on-site video embeds.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <a
+                  href={youtubeChannelUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 rounded-xl text-xs font-medium flex items-center gap-1.5 transition-colors"
+                >
+                  <Youtube className="w-4 h-4 text-rose-500" />
+                  <span>Open YouTube Channel</span>
+                </a>
+
+                <button
+                  onClick={() => setShowAddVideoModal(true)}
+                  className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-md shadow-rose-600/20"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add YouTube Video</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Videos Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {videos.map((vid) => (
+                <div
+                  key={vid.id}
+                  className="rounded-2xl bg-slate-900 border border-slate-800 overflow-hidden flex flex-col justify-between"
+                >
+                  <div>
+                    {/* Thumbnail */}
+                    <div className="aspect-16/9 bg-slate-950 relative group">
+                      <img
+                        src={vid.thumbnailUrl}
+                        alt={vid.title}
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={() => setPreviewVideo(vid)}
+                          className="w-10 h-10 rounded-full bg-rose-600 text-white flex items-center justify-center shadow-lg"
+                        >
+                          <Play className="w-4 h-4 fill-white ml-0.5" />
+                        </button>
+                      </div>
+
+                      <div className="absolute top-2 left-2 flex gap-1">
+                        {vid.isFeatured && (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500 text-black">
+                            Featured
+                          </span>
+                        )}
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-950/80 text-cyan-300 border border-slate-800">
+                          {vid.category}
+                        </span>
+                      </div>
+
+                      <div className="absolute bottom-2 right-2 px-1.5 py-0.5 rounded bg-black/80 text-[10px] font-mono text-slate-300">
+                        {vid.duration || 'Video'}
+                      </div>
+                    </div>
+
+                    {/* Content */}
+                    <div className="p-4 space-y-2">
+                      <h3 className="text-sm font-bold text-white line-clamp-2">{vid.title}</h3>
+                      <p className="text-xs text-slate-400 line-clamp-2">{vid.description}</p>
+                      <div className="text-[11px] font-mono text-slate-500 pt-1">
+                        ID: {vid.youtubeId} · {vid.publishedAt}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Actions Bar */}
+                  <div className="p-3 border-t border-slate-800 bg-slate-950/60 flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => togglePublishVideo(vid.id)}
+                        className={`px-2 py-1 rounded text-[11px] font-medium ${
+                          vid.isPublished ? 'text-emerald-400 hover:bg-slate-800' : 'text-slate-500 hover:bg-slate-800'
+                        }`}
+                      >
+                        {vid.isPublished ? 'Published' : 'Draft'}
+                      </button>
+
+                      <button
+                        onClick={() => toggleFeaturedVideo(vid.id)}
+                        className={`px-2 py-1 rounded text-[11px] font-medium ${
+                          vid.isFeatured ? 'text-amber-400 hover:bg-slate-800' : 'text-slate-500 hover:bg-slate-800'
+                        }`}
+                      >
+                        {vid.isFeatured ? '★ Featured' : '☆ Feature'}
+                      </button>
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => setPreviewVideo(vid)}
+                        className="p-1.5 text-cyan-400 hover:bg-slate-800 rounded cursor-pointer"
+                        title="Watch Preview"
+                      >
+                        <Play className="w-3.5 h-3.5 fill-cyan-400" />
+                      </button>
+
+                      <button
+                        onClick={() => handleStartEditVideo(vid)}
+                        className="p-1.5 text-slate-300 hover:text-white hover:bg-slate-800 rounded cursor-pointer"
+                        title="Edit Video"
+                      >
+                        <Edit className="w-3.5 h-3.5" />
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          if (confirm(`Delete video "${vid.title}"?`)) deleteVideo(vid.id);
+                        }}
+                        className="p-1.5 text-rose-400 hover:bg-slate-800 rounded cursor-pointer"
+                        title="Delete"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* TAB 4: ENROLLED STUDENTS */}
         {activeTab === 'students' && (
           <div className="space-y-6">
@@ -1073,6 +1439,155 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToHome }) 
           </div>
         )}
 
+        {/* TAB: IMAGES & MEDIA LIBRARY */}
+        {activeTab === 'media' && (
+          <div className="space-y-8">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h1 className="text-2xl font-bold text-white">Images & Media Assets Manager</h1>
+                <p className="text-xs text-slate-400">
+                  Manage official founder portraits, course banners, and marketing assets with one-click URL copying.
+                </p>
+              </div>
+            </div>
+
+            {/* Upload / Add Form */}
+            <form onSubmit={handleAddMedia} className="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-4 text-xs">
+              <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                <Upload className="w-4 h-4 text-cyan-400" />
+                <span>Register New Image Asset</span>
+              </h3>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="text-slate-300 block mb-1">Asset Title *</label>
+                  <input
+                    type="text"
+                    required
+                    value={newMediaTitle}
+                    onChange={(e) => setNewMediaTitle(e.target.value)}
+                    placeholder="e.g. Masterclass Banner 2026"
+                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-slate-300 block mb-1">Category</label>
+                  <select
+                    value={newMediaCategory}
+                    onChange={(e) => setNewMediaCategory(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-white"
+                  >
+                    <option value="Founder / Profile">Founder / Profile</option>
+                    <option value="Course Cover">Course Cover</option>
+                    <option value="Brand / Logo">Brand / Logo</option>
+                    <option value="Certificate">Certificate</option>
+                    <option value="Marketing">Marketing Banner</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-slate-300 block mb-1">Direct Image URL *</label>
+                  <input
+                    type="url"
+                    required
+                    value={newMediaUrl}
+                    onChange={(e) => setNewMediaUrl(e.target.value)}
+                    placeholder="https://res.cloudinary.com/... or Unsplash"
+                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-white font-mono text-[11px]"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-slate-300 block mb-1">Asset Description (Optional)</label>
+                <input
+                  type="text"
+                  value={newMediaDesc}
+                  onChange={(e) => setNewMediaDesc(e.target.value)}
+                  placeholder="Where or how this image is intended to be used..."
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-white"
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl text-xs flex items-center gap-1.5 cursor-pointer shadow-md"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Add Image to Media Library</span>
+              </button>
+            </form>
+
+            {/* Media Gallery Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {mediaList.map((item) => (
+                <div
+                  key={item.id}
+                  className="rounded-2xl bg-slate-900 border border-slate-800 overflow-hidden flex flex-col justify-between group shadow-xl"
+                >
+                  <div>
+                    {/* Image Preview Screen */}
+                    <div className="aspect-16/9 bg-slate-950 relative overflow-hidden">
+                      <img
+                        src={item.url}
+                        alt={item.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        onError={(e) => {
+                          (e.target as HTMLElement).style.display = 'none';
+                        }}
+                      />
+                      <div className="absolute top-2 left-2 px-2 py-0.5 rounded text-[10px] font-bold bg-slate-950/80 text-cyan-300 border border-slate-800 backdrop-blur-xs">
+                        {item.category}
+                      </div>
+                    </div>
+
+                    <div className="p-4 space-y-1.5 text-xs">
+                      <h4 className="font-bold text-white truncate">{item.title}</h4>
+                      <p className="text-[11px] text-slate-400 line-clamp-2 leading-relaxed">
+                        {item.description}
+                      </p>
+                      <div className="pt-1 font-mono text-[10px] text-slate-500 truncate">
+                        {item.url}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-3 border-t border-slate-800 bg-slate-950/60 flex items-center justify-between text-xs gap-2">
+                    <button
+                      type="button"
+                      onClick={() => copyToClipboard(item.url, item.id)}
+                      className="flex-1 py-1.5 px-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-[11px] font-medium flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      {copiedMediaId === item.id ? (
+                        <>
+                          <Check className="w-3.5 h-3.5 text-emerald-400" />
+                          <span className="text-emerald-400">Copied!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3.5 h-3.5 text-cyan-400" />
+                          <span>Copy URL</span>
+                        </>
+                      )}
+                    </button>
+
+                    <a
+                      href={item.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg"
+                      title="Open Image"
+                    >
+                      <Eye className="w-4 h-4" />
+                    </a>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* TAB 11: SETTINGS & PAYMENT CONFIGURATION */}
         {activeTab === 'settings' && (
           <div className="space-y-8">
@@ -1115,6 +1630,48 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToHome }) 
                 </div>
               </div>
 
+              {/* Founder Profile Image Configuration */}
+              <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-slate-300 font-semibold block">
+                    Official Founder Profile Image URL (Centralized)
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setFounderProfileImage(OFFICIAL_FOUNDER_IMAGE)}
+                    className="text-[11px] text-cyan-400 hover:underline cursor-pointer"
+                  >
+                    Reset to Official Image
+                  </button>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-center gap-4">
+                  <div className="w-16 h-16 rounded-xl overflow-hidden bg-slate-900 border border-slate-700 shrink-0">
+                    <img
+                      src={founderProfileImage}
+                      alt={founderName}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLElement).style.display = 'none';
+                      }}
+                    />
+                  </div>
+
+                  <div className="flex-1 w-full space-y-1">
+                    <input
+                      type="url"
+                      value={founderProfileImage}
+                      onChange={(e) => setFounderProfileImage(e.target.value)}
+                      placeholder="https://res.cloudinary.com/..."
+                      className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-lg text-white font-mono text-[11px]"
+                    />
+                    <p className="text-[11px] text-slate-500">
+                      This centralized image dynamically updates Mahmudul Hasan's photo across the Hero, About, Course instructor cards, and Admin portal.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="text-slate-300 block mb-1">Founder Email (Official)</label>
@@ -1134,6 +1691,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToHome }) 
                     className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-white"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="text-slate-300 block mb-1">YouTube Channel URL</label>
+                <input
+                  type="url"
+                  value={youtubeChannelUrl}
+                  onChange={(e) => setYoutubeChannelUrl(e.target.value)}
+                  placeholder="https://www.youtube.com/@AIBARTA24"
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-white font-mono text-xs"
+                />
               </div>
 
               <div>
@@ -1238,6 +1806,91 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToHome }) 
               </div>
             </div>
 
+            {/* Admin Security & Password Change */}
+            <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-4 text-xs">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                <div className="flex items-center gap-2">
+                  <Lock className="w-4 h-4 text-cyan-400" />
+                  <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+                    Admin Security & Password Management
+                  </h3>
+                </div>
+                <span className="text-[11px] font-mono text-cyan-400">
+                  {getAdminAccount()?.email || currentUser?.email || 'admin'}
+                </span>
+              </div>
+
+              <p className="text-slate-400 leading-relaxed">
+                Change your Master Admin password. Your password is protected with 100,000 iterations of PBKDF2-SHA-256 and unique cryptographic salt.
+              </p>
+
+              {passMsg && (
+                <div
+                  className={`p-3 rounded-xl border flex items-center gap-2 text-xs ${
+                    passMsg.type === 'success'
+                      ? 'bg-emerald-950/80 border-emerald-800 text-emerald-300'
+                      : 'bg-rose-950/80 border-rose-800 text-rose-300'
+                  }`}
+                >
+                  {passMsg.type === 'success' ? (
+                    <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                  ) : (
+                    <ShieldAlert className="w-4 h-4 text-rose-400 shrink-0" />
+                  )}
+                  <span>{passMsg.text}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleChangePassword} className="space-y-3.5 max-w-xl">
+                <div>
+                  <label className="text-slate-300 block mb-1 font-medium">Current Password *</label>
+                  <input
+                    type="password"
+                    required
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    placeholder="Enter existing password"
+                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-white font-mono"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-slate-300 block mb-1 font-medium">New Password * (min 8 chars)</label>
+                    <input
+                      type="password"
+                      required
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="Enter new strong password"
+                      className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-white font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-slate-300 block mb-1 font-medium">Confirm New Password *</label>
+                    <input
+                      type="password"
+                      required
+                      value={confirmNewPassword}
+                      onChange={(e) => setConfirmNewPassword(e.target.value)}
+                      placeholder="Re-type new password"
+                      className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-white font-mono"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={passLoading}
+                  className="px-5 py-2 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white font-semibold rounded-xl text-xs flex items-center gap-1.5 cursor-pointer shadow-md transition-all"
+                >
+                  <Key className="w-3.5 h-3.5" />
+                  <span>{passLoading ? 'Verifying & Re-Hashing...' : 'Update Password Securely'}</span>
+                </button>
+              </form>
+            </div>
+
             {/* Platform Backup, Export & Reset */}
             <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-4 text-xs">
               <h3 className="text-sm font-bold text-white uppercase tracking-wider">
@@ -1339,13 +1992,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToHome }) 
                 <button
                   type="button"
                   onClick={() => setShowAddCourseModal(false)}
-                  className="px-4 py-2 bg-slate-800 text-slate-300 rounded-lg"
+                  className="px-4 py-2 bg-slate-800 text-slate-300 rounded-lg cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-semibold cursor-pointer"
                 >
                   Save Course
                 </button>
@@ -1353,6 +2006,336 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToHome }) 
             </form>
           </div>
         </div>
+      )}
+
+      {/* Add YouTube Video Modal */}
+      {showAddVideoModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-xl overflow-hidden shadow-2xl p-6 space-y-4 my-8">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <Youtube className="w-5 h-5 text-rose-500 fill-rose-500" />
+                <h3 className="text-base font-bold text-white">Add YouTube Video to Library</h3>
+              </div>
+              <button
+                onClick={() => setShowAddVideoModal(false)}
+                className="text-slate-400 hover:text-white p-1"
+              >
+                <XCircle className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateVideo} className="space-y-3.5 text-xs">
+              <div>
+                <label className="text-slate-300 block mb-1 font-medium">Video Title (English) *</label>
+                <input
+                  type="text"
+                  required
+                  value={newVideoTitle}
+                  onChange={(e) => setNewVideoTitle(e.target.value)}
+                  placeholder="e.g. Master Prompt Engineering in 2026"
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-white"
+                />
+              </div>
+
+              <div>
+                <label className="text-slate-300 block mb-1 font-medium">Video Title (Bengali)</label>
+                <input
+                  type="text"
+                  value={newVideoTitleBn}
+                  onChange={(e) => setNewVideoTitleBn(e.target.value)}
+                  placeholder="e.g. ২০২৬ সালে প্রম্পট ইঞ্জিনিয়ারিং শেখার সহজ উপায়"
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-white font-bengali"
+                />
+              </div>
+
+              <div>
+                <label className="text-slate-300 block mb-1 font-medium">
+                  YouTube Video URL *
+                </label>
+                <input
+                  type="url"
+                  required
+                  value={newVideoUrl}
+                  onChange={(e) => setNewVideoUrl(e.target.value)}
+                  placeholder="https://www.youtube.com/watch?v=... or https://youtu.be/... or shorts"
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-white font-mono text-[11px]"
+                />
+                {newVideoUrl && (
+                  <div className="mt-1.5 p-2 rounded bg-slate-950/80 border border-slate-800 flex items-center justify-between text-[11px]">
+                    <span className="text-slate-400">
+                      Detected ID:{' '}
+                      <strong className="text-cyan-400 font-mono">
+                        {extractYouTubeId(newVideoUrl) || 'Unrecognized format (will save custom)'}
+                      </strong>
+                    </span>
+                    {extractYouTubeId(newVideoUrl) && (
+                      <span className="text-emerald-400 flex items-center gap-1 font-medium">
+                        <CheckCircle className="w-3 h-3" /> Valid YouTube Video
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-slate-300 block mb-1 font-medium">Category</label>
+                  <select
+                    value={newVideoCategory}
+                    onChange={(e) => setNewVideoCategory(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-white"
+                  >
+                    <option value="Generative AI">Generative AI</option>
+                    <option value="Prompt Engineering">Prompt Engineering</option>
+                    <option value="AI Video">AI Video</option>
+                    <option value="AI Automation">AI Automation</option>
+                    <option value="AI Tools">AI Tools</option>
+                    <option value="Creative AI">Creative AI</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-slate-300 block mb-1 font-medium">Duration (e.g. 14:20)</label>
+                  <input
+                    type="text"
+                    value={newVideoDuration}
+                    onChange={(e) => setNewVideoDuration(e.target.value)}
+                    placeholder="12:30"
+                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-white font-mono"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-slate-300 block mb-1 font-medium">
+                  Custom Thumbnail URL (Optional)
+                </label>
+                <input
+                  type="url"
+                  value={newVideoThumbnail}
+                  onChange={(e) => setNewVideoThumbnail(e.target.value)}
+                  placeholder="Leave blank to auto-fetch official YouTube HQ thumbnail"
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-white text-[11px]"
+                />
+                <p className="text-[10px] text-slate-500 mt-0.5">
+                  If left blank, AI Barta 24 automatically fetches the high-definition YouTube thumbnail.
+                </p>
+              </div>
+
+              <div>
+                <label className="text-slate-300 block mb-1 font-medium">Description</label>
+                <textarea
+                  rows={2}
+                  value={newVideoDesc}
+                  onChange={(e) => setNewVideoDesc(e.target.value)}
+                  placeholder="Key concepts covered in this video lesson..."
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-white resize-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 pt-1">
+                <label className="flex items-center gap-2 text-slate-300 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={newVideoFeatured}
+                    onChange={(e) => setNewVideoFeatured(e.target.checked)}
+                    className="rounded border-slate-700 text-rose-500"
+                  />
+                  <span>Featured Video</span>
+                </label>
+
+                <label className="flex items-center gap-2 text-slate-300 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={newVideoPublished}
+                    onChange={(e) => setNewVideoPublished(e.target.checked)}
+                    className="rounded border-slate-700 text-rose-500"
+                  />
+                  <span>Published Immediately</span>
+                </label>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setShowAddVideoModal(false)}
+                  className="px-4 py-2 bg-slate-800 text-slate-300 rounded-lg cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-lg font-semibold flex items-center gap-1.5 cursor-pointer shadow-md shadow-rose-600/20"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Publish Video</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Video Modal */}
+      {editingVideo && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-xl overflow-hidden shadow-2xl p-6 space-y-4 my-8">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <Edit className="w-5 h-5 text-cyan-400" />
+                <h3 className="text-base font-bold text-white">Edit Video Details</h3>
+              </div>
+              <button
+                onClick={() => setEditingVideo(null)}
+                className="text-slate-400 hover:text-white p-1"
+              >
+                <XCircle className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditVideo} className="space-y-3.5 text-xs">
+              <div>
+                <label className="text-slate-300 block mb-1 font-medium">Video Title (English) *</label>
+                <input
+                  type="text"
+                  required
+                  value={editingVideo.title}
+                  onChange={(e) => setEditingVideo({ ...editingVideo, title: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-white"
+                />
+              </div>
+
+              <div>
+                <label className="text-slate-300 block mb-1 font-medium">Video Title (Bengali)</label>
+                <input
+                  type="text"
+                  value={editingVideo.titleBn || ''}
+                  onChange={(e) => setEditingVideo({ ...editingVideo, titleBn: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-white font-bengali"
+                />
+              </div>
+
+              <div>
+                <label className="text-slate-300 block mb-1 font-medium">YouTube URL *</label>
+                <input
+                  type="url"
+                  required
+                  value={editingVideo.youtubeUrl}
+                  onChange={(e) => {
+                    const newUrl = e.target.value;
+                    const extractedId = extractYouTubeId(newUrl);
+                    setEditingVideo({
+                      ...editingVideo,
+                      youtubeUrl: newUrl,
+                      youtubeId: extractedId || editingVideo.youtubeId,
+                      thumbnailUrl: extractedId ? getYouTubeThumbnail(extractedId, 'hq') : editingVideo.thumbnailUrl,
+                    });
+                  }}
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-white font-mono text-[11px]"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-slate-300 block mb-1 font-medium">Category</label>
+                  <select
+                    value={editingVideo.category}
+                    onChange={(e) => setEditingVideo({ ...editingVideo, category: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-white"
+                  >
+                    <option value="Generative AI">Generative AI</option>
+                    <option value="Prompt Engineering">Prompt Engineering</option>
+                    <option value="AI Video">AI Video</option>
+                    <option value="AI Automation">AI Automation</option>
+                    <option value="AI Tools">AI Tools</option>
+                    <option value="Creative AI">Creative AI</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-slate-300 block mb-1 font-medium">Duration</label>
+                  <input
+                    type="text"
+                    value={editingVideo.duration || ''}
+                    onChange={(e) => setEditingVideo({ ...editingVideo, duration: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-white font-mono"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-slate-300 block mb-1 font-medium">Thumbnail URL</label>
+                <input
+                  type="url"
+                  value={editingVideo.thumbnailUrl || ''}
+                  onChange={(e) => setEditingVideo({ ...editingVideo, thumbnailUrl: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-white text-[11px]"
+                />
+              </div>
+
+              <div>
+                <label className="text-slate-300 block mb-1 font-medium">Description</label>
+                <textarea
+                  rows={2}
+                  value={editingVideo.description}
+                  onChange={(e) => setEditingVideo({ ...editingVideo, description: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-white resize-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 pt-1">
+                <label className="flex items-center gap-2 text-slate-300 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={editingVideo.isFeatured}
+                    onChange={(e) => setEditingVideo({ ...editingVideo, isFeatured: e.target.checked })}
+                    className="rounded border-slate-700 text-amber-500"
+                  />
+                  <span>Featured Video</span>
+                </label>
+
+                <label className="flex items-center gap-2 text-slate-300 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={editingVideo.isPublished}
+                    onChange={(e) => setEditingVideo({ ...editingVideo, isPublished: e.target.checked })}
+                    className="rounded border-slate-700 text-emerald-500"
+                  />
+                  <span>Published</span>
+                </label>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setEditingVideo(null)}
+                  className="px-4 py-2 bg-slate-800 text-slate-300 rounded-lg cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-semibold flex items-center gap-1.5 cursor-pointer shadow-md"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>Update Video</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Video Preview Modal */}
+      {previewVideo && (
+        <VideoModal
+          video={previewVideo}
+          allVideos={videos}
+          onClose={() => setPreviewVideo(null)}
+          onSelectVideo={(v) => setPreviewVideo(v)}
+          language={language}
+        />
       )}
     </div>
   );

@@ -140,7 +140,7 @@ export const Hero: React.FC<HeroProps> = ({ onNavigate }) => {
                     <div className="flex items-center gap-3.5 pb-3 border-b border-slate-800/80">
                       <div className="relative w-14 h-14 rounded-xl overflow-hidden border border-cyan-500/40 shrink-0 bg-slate-800">
                         <img
-                          src={settings.founderImage}
+                          src={settings.founderProfileImage || settings.founderImage}
                           alt={settings.founderName}
                           className="w-full h-full object-cover"
                           onError={(e) => {

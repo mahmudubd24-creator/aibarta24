@@ -26,7 +26,7 @@ export const CourseDetailsView: React.FC<CourseDetailsViewProps> = ({
   onNavigate,
   onEnroll,
 }) => {
-  const { getCourseBySlug, language, isCourseEnrolled } = useApp();
+  const { getCourseBySlug, language, isCourseEnrolled, settings } = useApp();
   const [activePreviewLesson, setActivePreviewLesson] = useState<Lesson | null>(null);
   const [openModuleIds, setOpenModuleIds] = useState<Record<string, boolean>>({
     'mod-1': true,
@@ -103,7 +103,7 @@ export const CourseDetailsView: React.FC<CourseDetailsViewProps> = ({
               {/* Instructor Mini Badge */}
               <div className="pt-2 flex items-center gap-3 text-xs text-slate-300">
                 <img
-                  src={course.instructor.avatar}
+                  src={course.instructor.avatar || settings.founderProfileImage || settings.founderImage}
                   alt={course.instructor.name}
                   className="w-9 h-9 rounded-full object-cover border border-slate-700"
                 />

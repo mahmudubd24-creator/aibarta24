@@ -187,6 +187,23 @@ export interface Coupon {
   isActive: boolean;
 }
 
+export interface VideoItem {
+  id: string;
+  title: string;
+  titleBn?: string;
+  youtubeUrl: string;
+  youtubeId: string;
+  description: string;
+  descriptionBn?: string;
+  category: string;
+  thumbnailUrl?: string;
+  duration?: string;
+  isFeatured: boolean;
+  isPublished: boolean;
+  publishedAt: string;
+  provider?: 'youtube' | 'vimeo' | 'custom';
+}
+
 export interface PlatformSettings {
   siteTitle: string;
   siteTagline: string;
@@ -195,9 +212,10 @@ export interface PlatformSettings {
   founderTitle: string;
   founderEmail: string;
   founderPhone: string;
+  founderProfileImage: string;
   founderBio: string;
   founderBioBn: string;
-  founderImage: string;
+  founderImage: string; // backwards compatibility alias
   heroHeading: string;
   heroHeadingBn: string;
   heroSubheading: string;

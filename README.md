@@ -86,10 +86,78 @@ npm run build
 
 ---
 
-## 🔐 Admin Authentication
+## 🔒 Private & Secure Admin Panel Guide
 
-- To access the Admin Dashboard, click on **Admin** in the demo role switcher or navigate to `/admin`.
-- Default pre-configured administrator:
-  - **Email:** `admin@aibarta24.com`
-  - **Role:** `admin`
-- All settings, payment numbers, and course content can be managed directly in the Admin Panel without touching source code.
+The AI Barta 24 Admin Panel is completely private and hidden from public visitors. It uses native Web Crypto PBKDF2-SHA-256 salted hashing (100,000 iterations), brute-force rate-limiting protection, and session validation.
+
+### 1. How to Create Your First Admin Account
+1. Open your browser and navigate directly to:
+   ```
+   https://yourdomain.com/admin/setup
+   ```
+   (In local development: `http://localhost:3000/admin/setup`)
+2. You will be greeted by the **First Admin Setup Wizard**.
+3. Enter your **Admin Gmail / Email** (e.g. `mahmudubd24@gmail.com`).
+4. Enter your desired **Admin Password** (minimum 8 characters) and confirm it.
+5. Click **"Save Credentials & Lock Setup"**.
+6. Your credentials will be cryptographically salted and hashed. Once created:
+   - An active 24-hour admin session will begin immediately.
+   - The `/admin/setup` portal is **permanently disabled and locked** to prevent anyone else from running setup again.
+
+---
+
+### 2. Where to Set Your Admin Gmail
+* **During First Setup:** Enter your Gmail directly into the `/admin/setup` screen.
+* **Via Environment Variable (Optional):** You can set `VITE_ADMIN_EMAIL="mahmudubd24@gmail.com"` in your Netlify or `.env` configuration. This will automatically prefill your email in the setup wizard for convenience.
+
+---
+
+### 3. Where to Set / Change Your Admin Password
+* **Initial Password:** Set during the one-time `/admin/setup` process.
+* **Change Password Later:**
+  1. Log into `/admin`.
+  2. Navigate to **Platform Settings** (the bottom tab in the Admin sidebar).
+  3. Scroll to the **Admin Security & Password Management** section.
+  4. Enter your **Current Password**, followed by your **New Password** and **Confirm New Password**.
+  5. Click **"Update Password Securely"**. The system verifies your current password, generates a fresh cryptographic salt, hashes the new password with PBKDF2, and refreshes your secure session token.
+
+---
+
+### 4. How to Log Into `/admin`
+1. Navigate directly to the protected login portal:
+   ```
+   https://yourdomain.com/admin/login
+   ```
+2. Enter your registered Admin Gmail and Password.
+3. Click **"Sign In to Admin Panel"**.
+4. Upon successful verification, you will be redirected to the full Admin Dashboard at `/admin`.
+5. If an unauthenticated visitor tries to type `/admin` directly, the system immediately redirects them to `/admin/login` without disclosing any dashboard data.
+
+---
+
+### 5. Brute-Force Rate Limiting & Lockout Protection
+* To prevent unauthorized access, the login endpoint tracks consecutive failed attempts.
+* After **5 failed login attempts**, the login portal triggers an automated **5-minute security lockout**. A live countdown timer is displayed and further attempts are rejected until the cooldown expires.
+
+---
+
+### 6. Netlify Environment Variables Configuration
+To configure environment variables for production on Netlify:
+1. Log in to your [Netlify Dashboard](https://app.netlify.com).
+2. Go to your site: **Site configuration → Environment variables**.
+3. Click **Add a variable** and configure:
+   - `VITE_ADMIN_EMAIL`: Your master admin email (e.g. `mahmudubd24@gmail.com`).
+   - `VITE_SITE_TITLE`: `AI Barta 24`
+   - `VITE_FOUNDER_NAME`: `Mahmudul Hasan`
+   - `VITE_CONTACT_EMAIL`: `aibartabd@mail.com`
+4. Re-deploy the site.
+
+---
+
+### 7. Security Best Practices
+- **Never commit plain-text credentials** to GitHub or any public repository.
+- **Never hardcode passwords** into frontend source code.
+- Always use a strong, unique password consisting of letters, numbers, and symbols.
+- Log out of the Admin Panel when using shared computers using the **"Logout"** button in the Admin sidebar, which terminates the active cryptographic session token.
+- SPA redirects are secured via `public/_redirects` (`/*  /index.html  200`).
+

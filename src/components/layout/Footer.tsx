@@ -56,7 +56,12 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
               {settings.founderPhone && (
                 <div className="flex items-center gap-2">
                   <Phone className="w-4 h-4 text-cyan-400 shrink-0" />
-                  <span>{settings.founderPhone}</span>
+                  <a
+                    href={`tel:${settings.founderPhone}`}
+                    className="hover:text-cyan-300 transition-colors"
+                  >
+                    {settings.founderPhone}
+                  </a>
                 </div>
               )}
             </div>
@@ -152,6 +157,14 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
                   className="hover:text-cyan-400 transition-colors"
                 >
                   {language === 'bn' ? 'সকল কোর্স' : 'All Courses'}
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => onNavigate('videos')}
+                  className="hover:text-cyan-400 transition-colors"
+                >
+                  {language === 'bn' ? 'এআই ভিডিও লাইব্রেরি' : 'AI Video Library'}
                 </button>
               </li>
               <li>

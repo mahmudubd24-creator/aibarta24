@@ -8,7 +8,10 @@ import {
   ResourceItem,
   Coupon,
   User,
+  VideoItem,
 } from '../types';
+
+export const OFFICIAL_FOUNDER_IMAGE = 'https://res.cloudinary.com/zxszyozq/image/upload/v1791368741/WhatsApp_Image_2026-10-07_at_4.25.11_PM.jpg';
 
 export const INITIAL_SETTINGS: PlatformSettings = {
   siteTitle: 'AI Barta 24',
@@ -17,10 +20,11 @@ export const INITIAL_SETTINGS: PlatformSettings = {
   founderName: 'Mahmudul Hasan',
   founderTitle: 'AI Educator | AI Trainer | AI Learner | Content Creator',
   founderEmail: 'aibartabd@mail.com',
-  founderPhone: '+880 1700-000000',
+  founderPhone: '01310601558',
+  founderProfileImage: OFFICIAL_FOUNDER_IMAGE,
   founderBio: 'Mahmudul Hasan is an AI educator, trainer, and technology content creator dedicated to bridging the AI divide for Bengali-speaking learners worldwide. Through AI Barta 24, he shares practical, production-ready AI frameworks, prompt engineering systems, and automated workflows designed for career growth and creative independence.',
   founderBioBn: 'মাহমুদুল হাসান একজন এআই শিক্ষক, প্রশিক্ষক এবং প্রযুক্তি কনটেন্ট ক্রিয়েটর। বাংলাভাষী শিক্ষার্থীদের জন্য বাস্তবসম্মত এবং প্রয়োগমুখী কৃত্রিম বুদ্ধিমত্তার জ্ঞান সহজলভ্য করতে তিনি প্রতিষ্ঠা করেছেন ‘AI Barta 24’। ব্যবহারিক প্রম্পট ইঞ্জিনিয়ারিং, অটোমেশন এবং প্রোডাকশন-রেডি এআই টুলস আয়ত্ত করতে তিনি নিয়মিত প্রশিক্ষণ প্রদান করছেন।',
-  founderImage: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=600',
+  founderImage: OFFICIAL_FOUNDER_IMAGE,
   heroHeading: 'Master Practical AI. Build Smarter. Shape Your Future.',
   heroHeadingBn: 'AI শিখুন। স্মার্টভাবে তৈরি করুন। ভবিষ্যৎ গড়ুন।',
   heroSubheading: 'Master Generative AI, Prompt Engineering, Automation, and Next-Gen Digital Workflows tailored for students, creators, and modern professionals.',
@@ -41,9 +45,9 @@ export const INITIAL_SETTINGS: PlatformSettings = {
   ],
   socialLinks: {
     facebook: 'https://facebook.com/aibarta24',
-    youtube: 'https://youtube.com/@aibarta24',
+    youtube: 'https://www.youtube.com/@AIBARTA24',
     linkedin: 'https://linkedin.com/in/mahmudulhasan',
-    whatsapp: 'https://wa.me/8801700000000',
+    whatsapp: 'https://wa.me/8801310601558',
     telegram: 'https://t.me/aibarta24',
     github: 'https://github.com/mahmudulhasan'
   },
@@ -118,7 +122,7 @@ export const INITIAL_COURSES: Course[] = [
     instructor: {
       name: 'Mahmudul Hasan',
       title: 'AI Educator & Founder, AI Barta 24',
-      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=400',
+      avatar: OFFICIAL_FOUNDER_IMAGE,
       bio: 'Practicing AI trainer helping learners demystify cutting-edge generative tools and build scalable personal workflows.'
     },
     outcomes: [
@@ -278,7 +282,7 @@ export const INITIAL_COURSES: Course[] = [
     instructor: {
       name: 'Mahmudul Hasan',
       title: 'AI Educator & Founder, AI Barta 24',
-      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=400',
+      avatar: OFFICIAL_FOUNDER_IMAGE,
       bio: 'Practicing AI trainer helping learners demystify cutting-edge generative tools and build scalable personal workflows.'
     },
     outcomes: [
@@ -372,7 +376,7 @@ export const INITIAL_COURSES: Course[] = [
     instructor: {
       name: 'Mahmudul Hasan',
       title: 'AI Educator & Founder, AI Barta 24',
-      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=400',
+      avatar: OFFICIAL_FOUNDER_IMAGE,
       bio: 'Practicing AI trainer helping learners demystify cutting-edge generative tools and build scalable personal workflows.'
     },
     outcomes: [
@@ -648,16 +652,6 @@ export const INITIAL_COUPONS: Coupon[] = [
 
 export const INITIAL_USERS: User[] = [
   {
-    id: 'usr-admin-1',
-    name: 'Mahmudul Hasan (Admin)',
-    email: 'admin@aibarta24.com',
-    phone: '+880 1700-000000',
-    role: 'admin',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=400',
-    bio: 'Founder and Lead Instructor at AI Barta 24.',
-    createdAt: '2026-01-01'
-  },
-  {
     id: 'usr-student-1',
     name: 'Shakil Ahmed',
     email: 'student@example.com',
@@ -666,5 +660,72 @@ export const INITIAL_USERS: User[] = [
     avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=200',
     bio: 'Lifelong learner mastering AI tools.',
     createdAt: '2026-08-14'
+  }
+];
+
+export const INITIAL_VIDEOS: VideoItem[] = [
+  {
+    id: 'vid-1',
+    title: 'How to Master Generative AI in 2026 (বাংলা গাইডলাইন)',
+    titleBn: '২০২৬ সালে জেনারেটিভ এআই শেখার সম্পূর্ণ গাইডলাইন',
+    youtubeUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+    youtubeId: 'dQw4w9WgXcQ',
+    description: 'A complete strategic roadmap for beginners and professionals on navigating LLMs, prompt engineering, and commercial workflows.',
+    descriptionBn: 'শুরু থেকে প্রফেশনাল লেভেল পর্যন্ত কীভাবে জেনারেটিভ এআই এবং প্রম্পট ইঞ্জিনিয়ারিং আয়ত্ত করবেন তার বাস্তব রোডম্যাপ।',
+    category: 'Generative AI',
+    thumbnailUrl: 'https://img.youtube.com/vi/dQw4w9WgXcQ/maxresdefault.jpg',
+    duration: '14:20',
+    isFeatured: true,
+    isPublished: true,
+    publishedAt: '2026-09-18',
+    provider: 'youtube'
+  },
+  {
+    id: 'vid-2',
+    title: 'Top 5 Prompt Engineering Systems You Must Know',
+    titleBn: 'প্রম্পট ইঞ্জিনিয়ারিংয়ের ৫টি পাওয়ারফুল মেথড',
+    youtubeUrl: 'https://youtu.be/dQw4w9WgXcQ',
+    youtubeId: 'dQw4w9WgXcQ',
+    description: 'Hands-on breakdown of CREATE prompt frameworks, few-shot conditioning, and negative prompting.',
+    descriptionBn: 'চ্যাটজিপিটি এবং ক্লড থেকে সেরা রেজাল্ট বের করার জন্য ৫টি প্রুভেন প্রম্পট আর্কিটেকচার।',
+    category: 'Prompt Engineering',
+    thumbnailUrl: 'https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg',
+    duration: '18:45',
+    isFeatured: true,
+    isPublished: true,
+    publishedAt: '2026-09-25',
+    provider: 'youtube'
+  },
+  {
+    id: 'vid-3',
+    title: 'Cinematic AI Video Generation Tutorial with Runway Gen-3',
+    titleBn: 'রানওয়ে দিয়ে সিনেমাটিক এআই ভিডিও তৈরির কৌশল',
+    youtubeUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+    youtubeId: 'dQw4w9WgXcQ',
+    description: 'Explore camera motion parameters, motion brush controls, and multi-prompt directing for ultra-realistic video synthesis.',
+    descriptionBn: 'ক্যামেরা মুভমেন্ট, মোশন ব্রাশ এবং সিনেমাটিক প্রম্পটিংয়ের মাধ্যমে হাই-কোয়ালিটি ভিডিও তৈরি করুন।',
+    category: 'AI Video',
+    thumbnailUrl: 'https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg',
+    duration: '12:10',
+    isFeatured: false,
+    isPublished: true,
+    publishedAt: '2026-10-01',
+    provider: 'youtube'
+  },
+  {
+    id: 'vid-4',
+    title: 'Automate Your Social Media Content Pipeline with n8n & AI',
+    titleBn: 'n8n ও এআই দিয়ে সোশ্যাল মিডিয়া অটোমেশন সিস্টেম',
+    youtubeUrl: 'https://www.youtube.com/shorts/dQw4w9WgXcQ',
+    youtubeId: 'dQw4w9WgXcQ',
+    description: 'Build an autonomous zero-code system connecting webhooks, LLMs, and social publishers in 10 minutes.',
+    descriptionBn: 'কোডিং ছাড়া কীভাবে স্বয়ংক্রিয় এআই কনটেন্ট পাবলিশিং ওয়ার্কফ্লো তৈরি করবেন তার শর্ট টিউটোরিয়াল।',
+    category: 'AI Automation',
+    thumbnailUrl: 'https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg',
+    duration: '0:58',
+    isFeatured: false,
+    isPublished: true,
+    publishedAt: '2026-10-04',
+    provider: 'youtube'
   }
 ];
